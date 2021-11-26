@@ -1,4 +1,5 @@
 package chess
+
 import kotlin.math.abs
 
 val board = Array(8) { Array(8) { ' ' } }
@@ -29,15 +30,26 @@ fun main() {
         if (input == "exit") break
 
         val color = if (turn == name1) "white" else "black"
+        val oppositeColor = if (color == "white") "black" else "white"
 
         if (!input.isValidInput()) println("Invalid Input") else {
             val x1 = input[0].code - 97
             val y1 = 8 - input[1].digitToInt()
             val x2 = input[2].code - 97
             val y2 = 8 - input[3].digitToInt()
+            val winRow = if (color == "white") 0 else 7
+            val enPassantRow = if (color == "white") 3 else 4
 
             if (board[y1][x1] != color[0].uppercaseChar()) println("No $color pawn at ${input.substring(0..1)}") else {
                 if (isValidMove(x1, y1, x2, y2, color)) {
+                    if (getPawnAt(x2, y2).color == oppositeColor) getPawnAt(x2, y2).captured = true
+
+                    if (y1 == enPassantRow && getPawnAt(x2, y1).color == oppositeColor && getPawnAt(x2, y1).firstMove) {
+                        getPawnAt(x2, y1).captured = true
+
+                        board[y1][x2] = ' '
+                    }
+
                     board[y1][x1] = ' '
                     board[y2][x2] = color[0].uppercaseChar()
 
@@ -46,10 +58,22 @@ fun main() {
 
                     printBoard()
 
+                    if (y2 == winRow || allCaptured(color)) {
+                        println(color.replaceFirstChar { it.uppercase() } + " Wins!")
+
+                        break
+                    }
+
+                    if (stalemate()) {
+                        println("Stalemate!")
+
+                        break
+                    }
+
                     if (color == "white") {
-                        blackPawns.forEach { if (it.y != 1) it.firstMove = false}
+                        blackPawns.forEach { if (it.y != 1) it.firstMove = false }
                     } else {
-                        whitePawns.forEach { if (it.y != 6) it.firstMove = false}
+                        whitePawns.forEach { if (it.y != 6) it.firstMove = false }
                     }
 
                     turn = if (turn == name1) name2 else name1
@@ -100,20 +124,46 @@ fun isValidMove(x1: Int, y1: Int, x2: Int, y2: Int, turn: String): Boolean {
     } else {
         if (yC1 - yC2 != 1 || abs(x1 - x2) != 1) return false
 
-        if (getPawnAt(x2, y2).color == oppositeColor) {
-            getPawnAt(x2, y2).captured = true
+        if (getPawnAt(x2, y2).color == oppositeColor) return true
 
-            return true
-        }
-
-        if (y1 == enPassantRow && getPawnAt(x2, y1).color == oppositeColor && getPawnAt(x2, y1).firstMove) {
-            getPawnAt(x2, y1).captured = true
-
-            board[y1][x2] = ' '
-
-            return true
-        }
+        if (y1 == enPassantRow && getPawnAt(x2, y1).color == oppositeColor && getPawnAt(x2, y1).firstMove) return true
     }
 
     return false
 }
+
+fun allCaptured(turn: String): Boolean {
+    var captured = 0
+
+    if (turn == "white") {
+        blackPawns.forEach { if (it.captured) captured++ }
+    } else {
+        whitePawns.forEach { if (it.captured) captured++ }
+    }
+
+    return captured == 8
+}
+
+fun stalemate(): Boolean {
+    var whiteCanMove = false
+    var blackCanMove = false
+
+    whitePawns.forEach {
+        if (!it.captured &&
+            (isValidMove(it.x, it.y, it.x, it.y - 1, it.color) ||
+                    it.x != 0 && isValidMove(it.x, it.y, it.x - 1, it.y - 1, it.color) ||
+                    it.x != 7 && isValidMove(it.x, it.y, it.x + 1, it.y - 1, it.color))) whiteCanMove = true
+    }
+
+    blackPawns.forEach {
+        if (!it.captured &&
+            (isValidMove(it.x, it.y, it.x, it.y + 1, it.color) ||
+                    it.x != 0 && isValidMove(it.x, it.y, it.x - 1, it.y + 1, it.color) ||
+                    it.x != 7 && isValidMove(it.x, it.y, it.x + 1, it.y + 1, it.color))) blackCanMove = true
+    }
+
+    return !whiteCanMove || !blackCanMove
+}
+
+
+
